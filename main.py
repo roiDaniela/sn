@@ -51,23 +51,29 @@ def main():
         time_index+=interval
         stop = True
         #iterate over all df by their index
+        t_arr = []
         for k, df in df_dict.items():
             # sub_df = pd.dataframe()
-            if(df_dict_index[k] != df_dict_size[k]): #check if reach the end already in this df
+            if(df_dict_index[k] < df_dict_size[k]): #check if reach the end already in this df
                 start_i = df_dict_index[k]
-                while(df_dict_index[k] != df_dict_size[k] and #didn't reach end of df
+                while(df_dict_index[k] < df_dict_size[k] and #didn't reach end of df
                       df.iloc[df_dict_index[k]]['RelTime'] < time_index): #row is in batch
                     df_dict_index[k]+=1
 
                 # agg
                 # pd.DataFrame(data, index=[0])
-                data = {'RelTime': df_dict[k].iloc[df_dict_index[k]-1]['RelTime']}
+                t_arr.append(df_dict[k].iloc[df_dict_index[k]-1]['RelTime'])
+
+        for k,df in df_dict.items():
+            if (df_dict_index[k] <= df_dict_size[k]):
+                data = {'RelTime': min(t_arr)} #set the reltime to be the min reltime of all df in current batch
                 for func_name in aggr_func:
-                    data[k+'_'+func_name] = df.iloc[start_i:df_dict_index[k], 1].agg(func_name)
-                if(aggr_df[k].empty):
+                    data[k + '_' + func_name] = df.iloc[start_i:df_dict_index[k], 1].agg(func_name)
+                if (aggr_df[k].empty):
                     aggr_df[k] = pd.DataFrame(data, index=[0])
                 else:
                     aggr_df[k] = aggr_df[k].append(pd.DataFrame(data, index=[0]))
+            df_dict_index[k]+=1
 
         stop &= (df_dict_index[k] == df_dict_size[k])
 
