@@ -5,12 +5,13 @@ import numpy as np
 
 df_dict = {}
 df_dict_index = {}
+df_dict_index_start = {}
 df_dict_size = {}
 aggr_df = {}
 
 def generatedf():
     for i in range(5):
-        rows_len = randint(2000, 2500)
+        rows_len = randint(20000, 25000)
         df = pd.DataFrame(np.random.uniform(-60, 130, size=(rows_len, 2)), columns=['RelTime', 'example'+str(i)])
         df = df.sort_values('RelTime').reset_index(drop=True)
         df_dict['example'+str(i)] = df
@@ -55,9 +56,9 @@ def main():
         for k, df in df_dict.items():
             # sub_df = pd.dataframe()
             if(df_dict_index[k] < df_dict_size[k]): #check if reach the end already in this df
-                start_i = df_dict_index[k]
+                df_dict_index_start[k] = df_dict_index[k]
                 while(df_dict_index[k] < df_dict_size[k] and #didn't reach end of df
-                      df.iloc[df_dict_index[k]]['RelTime'] < time_index): #row is in batch
+                      df.iloc[df_dict_index[k]]['RelTime'] <= time_index): #row is in batch
                     df_dict_index[k]+=1
 
                 # agg
@@ -68,15 +69,22 @@ def main():
             if (df_dict_index[k] <= df_dict_size[k]):
                 data = {'RelTime': min(t_arr)} #set the reltime to be the min reltime of all df in current batch
                 for func_name in aggr_func:
-                    data[k + '_' + func_name] = df.iloc[start_i:df_dict_index[k], 1].agg(func_name)
+                    data[k + '_' + func_name] = df.iloc[df_dict_index_start[k]:(df_dict_index[k]+1), 1].agg(func_name)
                 if (aggr_df[k].empty):
                     aggr_df[k] = pd.DataFrame(data, index=[0])
                 else:
                     aggr_df[k] = aggr_df[k].append(pd.DataFrame(data, index=[0]))
-            df_dict_index[k]+=1
+                df_dict_index[k]+=1
 
-        stop &= (df_dict_index[k] == df_dict_size[k])
+            stop &= df_dict_index[k] > df_dict_size[k]
 
+    # join
+    full_df = pd.DataFrame()
+    for df in aggr_df.values():
+        if full_df.empty:
+            full_df = df.set_index('RelTime')
+        else:
+            full_df = full_df.join(df.set_index('RelTime'), on='RelTime', how='outer')
     print("hello")
 
 
